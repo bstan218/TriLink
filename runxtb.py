@@ -7,7 +7,7 @@ import os
 def xtb_optimize(xyzfile, freezeatoms=None):
     if freezeatoms:
         with open("freeze.inp", 'w') as outf:
-            outf.write(f"$fix\n  atoms: {",".join(freezeatoms)}\n$end")
+            outf.write(f"$fix\n  atoms: {','.join(freezeatoms)}\n$end")
     
     os.environ['OMP_STACKSIZE'] = '1G'
     runscript = ["xtb", f'{xyzfile}', "--opt", "[crude]"]
