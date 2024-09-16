@@ -1,200 +1,186 @@
-from Parser import MolFile
-import RotateMolecule as rm
+from Parser import ParsedFile, TLCode
 import os
 import configparser
-import numpy as np
 import time
+import OptimizeValidate
+import RotateMolecule
+import runxtb
+import subprocess
 
-def rotate_molecule(ligand):
+def create_xyz_file(template_file, ligand_file, outdir, temporaryfile=False):
+    templatename = template_file.filename
+    outfname = f'{templatename}.xyz'
+    outfpath = f'{outdir}/{outfname}'
+
+    if temporaryfile:
+        outfname = 'temp.xyz'
+        outfpath = outfname
     
-    def helper(sideindex):
-        #define inputs for first rotation
-        p11 = ligand.centered_atoms[sideindex]
-        p1mag = np.linalg.norm(p11)
-        p12 = np.array([p1mag,0,0])
-        v1 = rm.FindRotationVector(p11,p12)
-        t1 = rm.FindTheta(p11,p12)
-        #first rotation
-        first_rotated_atoms = []
-        for atom in ligand.centered_atoms:
-            first_rotated_atoms.append(rm.RotatePoint(atom,v1,t1))
+    
+    with open(outfpath, 'w') as outf:
+
+        temp_coords = template_file.optimized_coordinates.coords  
+        lig_coords = ligand_file.rotated_coordinates.coords
+
+        outf.write(f'{len(temp_coords)+len(lig_coords)-3}\n')
+        outf.write('\n')
+     
+        for i in range(0,len(temp_coords)):
+            if i+1 not in template_file.connection_atoms: 
+                atomtype = template_file.atomtypes[i]
+                x, y, z = temp_coords[i][0:3]
+                outf.write(f'{atomtype}      {x}   {y}   {z}\n')
         
-        #define inputs for second rotation
-        centerindex = ligand.centerconnection[3]-1
-        p21= first_rotated_atoms[centerindex]
-        p2mag = np.linalg.norm(p21)
-        p22 = [p21[0], 0.0, np.sqrt(p2mag**2-p21[0]**2)]
-        v2 = rm.FindRotationVector(p21,p22)
-        t2 = rm.FindTheta(p21,p22)
-        #second rotation
-        final_rotated_atoms = []
-        for atom in first_rotated_atoms:
-            final_rotated_atoms.append(rm.RotatePoint(atom, v2,t2))
-        
-        return final_rotated_atoms
+        for i in range(0,len(lig_coords)):
+            atomtype = ligand_file.atomtypes[i]
+            x, y, z = lig_coords[i][0:3]
+            outf.write(f'{atomtype}      {x}   {y}   {z}\n')   
 
-    sideindex = ligand.sideconnections[0][3]-1
-    altsideindex = ligand.sideconnections[1][3]-1
-    rotated_atoms = helper(sideindex)
-    alt_rotated_atoms = helper(altsideindex)
+        outf.write('\n')
 
-    return rotated_atoms, alt_rotated_atoms
-
-def trifilter(ligand, template, threshold, alt=False) -> bool:
-    ligand_coords = ligand.rotated_coordinates
-    if alt:
-        ligand_coords = ligand.alt_rotated_coordinates
-    template_coords = template.coordinates
-
-    below_threshold = []
-    min_dif = 10
-    for i in range(0,len(ligand_coords)):
-        for j in range(0,len(template_coords)):
-            #check length between ligand[i] and template[j]
-            if i+1 not in ligand.connection_atoms and j+1 not in template.connection_atoms:
-                xdif = abs(ligand_coords[i][0]- template_coords[j][0])
-                ydif = abs(ligand_coords[i][1]- template_coords[j][1])
-                zdif = abs(ligand_coords[i][2]- template_coords[j][2])
-                dif = np.sqrt(xdif**2+ydif**2+zdif**2)
-                if dif < threshold:
-                    below_threshold.append(f'Distance between Ligand Atom {i+1} and Template Atom {j+1}: {dif}')
-                if dif < min_dif:
-                    min_dif = dif
-
-
-    if below_threshold == []:
-        return True, None, min_dif
-    return False, below_threshold, min_dif
-
-def create_com_file(template_file, ligand_file, outdir, alt, headers, TS):
+def create_com_file(template_file, ligand_file, outdir, xtbopt = None):
     tempname = template_file.filename
     outfname = f'{tempname}.com'
-    non_ts_head, ts_head, ts_tail = headers[0:3]
+
+
     with open(f'{outdir}/{outfname}', 'w') as outf:
-        if TS:
-            with open(ts_head,'r') as header:
-                for line in header:
-                    outf.write(line)
-        else:
-            with open(non_ts_head,'r') as header:
-                for line in header:
-                    outf.write(f'{line}')
-        outf.write(f' \n')
-        outf.write(f'0 1\n')
+        for line in template_file.header:
+            outf.write(f'{line}\n')
         
-        for i in range(0,len(template_file.rotated_coordinates)):
-            if i+1 not in template_file.connection_atoms: 
-                atomtype = template_file.atoms[i][3]
-                x, y, z = template_file.rotated_coordinates[i][0:3]
-                outf.write(f'{atomtype}              {x}   {y}   {z}\n')
+        outf.write(f'\n')
+        outf.write(f'{template_file.title[0]}\n')
+        outf.write(f'\n')
+        outf.write(f'{int(round(ligand_file.charge+1))} 1\n')
         
-        lig_coords = ligand_file.rotated_coordinates
-        if alt:
-            lig_coords = ligand_file.alt_rotated_coordinates
-        for i in range(0,len(lig_coords)):
-            atomtype = ligand_file.atoms[i][3]
-            x, y, z = lig_coords[i][0:3]
-            outf.write(f'{atomtype}              {x}   {y}   {z}\n')   
-
-        outf.write('\n')
-
-
-        if TS:
-            #append bonds
-            for connection in ligand_file.connection_atoms:
-                newconnectionindex = int(connection) + len(template_file.rotated_coordinates) - 3
-                adj = 0
-                for i in template_file.connection_atoms:
-                    if i < template_file.coreindex:
-                        adj += 1
-                newcoreindex = template_file.coreindex - adj
-                outf.write(f'B {newcoreindex} {newconnectionindex} F\n')
-
-            outf.write('\n')
+        if not xtbopt:
+            temp_coords = template_file.optimized_coordinates.coords       
+            for i in range(0,len(temp_coords)):
+                if i+1 not in template_file.connection_atoms: 
+                    atomtype = template_file.atomtypes[i]
+                    x, y, z = temp_coords[i][0:3]
+                    outf.write(f'{atomtype}              {x}   {y}   {z}\n')
             
-            with open(ts_tail,'r') as footer:
-                for line in footer:
-                    outf.write(line)     
-        
-        
+            lig_coords = ligand_file.rotated_coordinates.coords
+            for i in range(0,len(lig_coords)):
+                atomtype = ligand_file.atomtypes[i]
+                x, y, z = lig_coords[i][0:3]
+                outf.write(f'{atomtype}              {x}   {y}   {z}\n')
+
+        else:
+            xtb_coords = xtbopt.atoms
+            for i in range(0, len(xtb_coords)):
+                atomtype = xtb_coords[i][0]
+                x, y, z = xtb_coords[i][1:4]
+                outf.write(f'{atomtype}            {x}     {y}     {z}\n')
+
         outf.write('\n')
+
+        TLCodefinder = TLCode()
+        for section in template_file.sections[3:]:
+            for line in section:
+                if TLCodefinder.check_for_code(line) != None:
+                    line = TLCodefinder.replace_code(line, ligand_file, template_file)
+                outf.write(f'{line}\n')
+            
+            outf.write('\n')
 
 def Init(configFile):
     config = configparser.ConfigParser()
     config.read(configFile)
     LigandLib = config['IODir']['LigandLibDir']
     TemplateDir = config['IODir']['TemplateDir']
-    HeadingsDir = config['ComFile']['HeadingsDir']
-    non_ts_head = config['ComFile']['non_ts_heading']
-    ts_head = config['ComFile']['ts_heading']
-    ts_tail = config['ComFile']['ts_tail']
-    threshold = float(config['Other']['Threshold'])
-    headings = [f'{HeadingsDir}{non_ts_head}', f'{HeadingsDir}{ts_head}', f'{HeadingsDir}{ts_tail}']
-    filtertemplatefile = config['Other']['filtertemplate']
     coreidentity = config['Other']['CoreIdentity']
-    return LigandLib, TemplateDir, headings, threshold, filtertemplatefile, coreidentity
+    xtbopt = config['Other']['xtbopt']
+    runscript = config['Other']['runscript']
+    script = config['Other']['script']
+    if xtbopt == "True":
+        xtbopt = True
+    else:
+        xtbopt = False
+    if runscript == "True":
+        runscript = True
+    else:
+        runscript = False    
+    return LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script
+
+
 
 def main():
     #assign directories and files, make directories
     configFile = "config.ini"
-    LigandLib, TemplateDir, headings, threshold, filtertemplatefile, coreidentity = Init(configFile)
+    LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script = Init(configFile)
     d = time.localtime()
-    outdir = f'Output_{d[1]}{d[2]}{d[0]}{d[3]}{d[4]}{d[5]})'
-    validligandsdir = f'{outdir}/valid_ligands/'
-    invalidligandsdir = f'{outdir}/invalid_ligands/'
-    validcomdir = f'{outdir}/com_files/'
+    OutDirLabel = LigandLib.replace('/','_')
+    xtblabel=""
+    if xtbopt:
+        xtblabel="xtb_"
+    outdir = f'Output_{OutDirLabel}{xtblabel}{d[1]}{d[2]}{d[0]}.{d[3]}{d[4]}{d[5]}'
+    validligdir = f'{outdir}/valid_ligands/'
+    invalidligdir = f'{outdir}/invalid_ligands/'
     os.mkdir(outdir)
-    os.mkdir(validligandsdir)
-    os.mkdir(invalidligandsdir)
-    os.mkdir(validcomdir)
-    filtertemplate = MolFile(f'{TemplateDir}{filtertemplatefile}')
+    os.mkdir(validligdir)
+    os.mkdir(invalidligdir)
 
+    #initialize template list
+    template_lst = []
+    for template in os.listdir(TemplateDir):
+        temp_filepath = f'{TemplateDir}{template}'
+        template = ParsedFile(temp_filepath, template=True, coreidentity=coreidentity)
+        nonaltcoords, altcoords = RotateMolecule.init_rotate_molecule(template)
+        template.set_rotated_coordinates(nonaltcoords)
+        template.set_alt_rotated_coordinates(altcoords)
+        template_lst.append(template)
+    
+    #main program loop
     for lig in os.listdir(LigandLib):
-        if lig.endswith('.mol'):
-            lig_filepath = f'{LigandLib}{lig}'
-            ligand = MolFile(lig_filepath)
-            ligand.rotated_coordinates, ligand.alt_rotated_coordinates = rotate_molecule(ligand)
-            
-            validity1, invalidations1, min_proximity1 = trifilter(ligand, filtertemplate, threshold)
-            validity2, invalidations2, min_proximity2 = trifilter(ligand, filtertemplate, threshold, alt=True)
-            #base case: both rotations valid
-            validity = True
-            alt = False
-            invalidations = invalidations1
-            if not validity1: #first rotation invalid
-                alt = True
-                invalidations = invalidations2
-                if not validity2: #second rotation invalid
-                    validity = False
-            
-            liganddir = invalidligandsdir
-            if validity:
-                liganddir = validligandsdir
+        print(lig)
+        lig_filepath = f'{LigandLib}{lig}'
+        ligand = ParsedFile(lig_filepath)
+        if ligand.missing_data:
+            continue
+        
+        valid, invalidations = OptimizeValidate.main_optimization(ligand, template_lst)
 
-                #create .com directory for ligand
-                outdir = (f'{validcomdir}/{ligand.filename}')
-                os.mkdir(outdir)
-                #create .com files
-                for template in os.listdir(TemplateDir):
-                    if template != filtertemplatefile:
-                        temp_filepath = f'{TemplateDir}{template}'
-                        template = MolFile(temp_filepath, template=True, coreidentity=coreidentity)
-                        TS = False
-                        if template.filename.startswith('TS'):
-                            TS = True
-                        template.rotated_coordinates = rotate_molecule(template)[0]
+        #rotamer optimization goes here
+        if not valid:
+            pass
+            #OptimizeValidate.rotamer_optimization(ligand, template_lst)
 
-                        create_com_file(template,ligand,outdir,alt,headings,TS)
-            
+        #create .com directory for ligand
+        outdir = (f'{invalidligdir}{ligand.filename}/')
+        if valid:
+            outdir = (f'{validligdir}{ligand.filename}/')
+        
+        os.mkdir(outdir)
+        #create .com files
+        for template in template_lst:
+            if valid and xtbopt:
+                create_xyz_file(template,ligand,outdir,temporaryfile=True)
+                #xtb optimization
+                #define connection atoms
+                freezeatoms = [f"1-{len(template.atoms)-3}"]
+                for atom in ligand.connection_atoms:
+                    freezeatoms.append(str(len(template.atoms)+int(atom)-3))
 
-            with open(f'{liganddir}{ligand.filename}.mol', 'w') as outf:
-                with open(ligand.filepath, 'r') as inf:
-                    for line in inf:
-                        outf.write(line)
-            if not validity:
-                with open(f'{liganddir}{ligand.filename} Exceptions.txt', 'w') as outf:
-                    for exception in invalidations:
-                        outf.write(f'{exception}\n')
+                runxtb.xtb_optimize('temp.xyz', freezeatoms)
+                xtbopt = ParsedFile('xtbopt.xyz')
+                create_com_file(template,ligand,outdir,xtbopt)
+            else:
+                create_com_file(template,ligand,outdir)
+                        
+        
+        if invalidations:
+            with open(f'{outdir}invalidations.txt', 'w') as outf:
+                for i in invalidations:
+                    outf.write(f'{i}\n')
+    
+    if runscript:
+        #for folder in 
+        for dir in os.listdir(validligdir):
+            os.chdir(f"./{validligdir}{dir}")
+            subprocess.run(script.split(), shell=True)
+    
 
 if __name__ == "__main__":
     main()
+    print('operation completed')
