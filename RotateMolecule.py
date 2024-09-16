@@ -41,12 +41,48 @@ def RotatePoint(p, rotationvector, theta):
 
     return q
 
+def init_rotate_molecule(ligand):
+    
+    def helper(sideindex):
+        #define inputs for first rotation
+        p11 = ligand.centered_atoms[sideindex]
+        p1mag = np.linalg.norm(p11)
+        p12 = np.array([p1mag,0,0])
+        v1 = FindRotationVector(p11,p12)
+        t1 = FindTheta(p11,p12)
+        #first rotation
+        first_rotated_atoms = []
+        for atom in ligand.centered_atoms:
+            first_rotated_atoms.append(RotatePoint(atom,v1,t1))
+        
+        #define inputs for second rotation
+        centerindex = ligand.centerconnection[3]-1
+        centerconnection = first_rotated_atoms[centerindex]
+        p21 = np.array([0,centerconnection[1], centerconnection[2]])
+        p2mag = np.linalg.norm(p21)
+        p22 = np.array([0,0,p2mag])
+        v2 = FindRotationVector(p21,p22)
+        t2 = FindTheta(p21,p22)
+        #second rotation
+        final_rotated_atoms = []
+        for atom in first_rotated_atoms:
+            final_rotated_atoms.append(RotatePoint(atom, v2, t2))
+        
+        return final_rotated_atoms
 
+    sideindex = ligand.sideconnections[0][3]-1
+    altsideindex = ligand.sideconnections[1][3]-1
+    rotated_atoms = helper(sideindex)
+    alt_rotated_atoms = helper(altsideindex)
 
-if __name__ == "__main__":
+    return rotated_atoms, alt_rotated_atoms
+
+def rock_rotate(template, theta):
+    coords = template.optimized_coordinates.coords
     vec = np.array([1,0,0])
-    theta = 5
-    p1 = np.array([2,0,0])
-    print(RotatePoint(p1,vec, theta))
+
+    return_coords = []
+    for atom in coords:
+        return_coords.append(RotatePoint(atom, vec, theta))
     
-    
+    return return_coords
