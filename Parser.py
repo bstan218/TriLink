@@ -135,7 +135,7 @@ class ParsedFile:
         for atom in atomsincludingcharge:
             lst = (atom.split(None))
             if len(lst) < 4:
-                self.charge = lst[0]
+                self.charge, self.spinmultiplicity = lst[0:2]
             else:
                 self.atoms.append(lst)
                 self.coordinates.append([float(lst[1]), float(lst[2]), float(lst[3])])
