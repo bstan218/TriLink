@@ -51,7 +51,8 @@ def create_com_file(template_file, ligand_file, outdir, xtbopt = None):
         outf.write(f'{template_file.title[0]}\n')
         outf.write(f'\n')
 
-        outf.write(f'{int(round(ligand_file.charge) + round(template_file.charge))} {int(round(template_file.spinmultiplicity))}\n')
+
+        outf.write(f'{ligand_file.charge + template_file.charge} {template_file.spinmultiplicity}\n')
         
         if not xtbopt:
             temp_coords = template_file.optimized_coordinates.coords       

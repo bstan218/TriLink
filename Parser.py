@@ -87,7 +87,7 @@ class ParsedFile:
         self.charge_lst = line_lst[1]
         self.charge = 0
         if len(self.charge_lst) >= 3:
-            self.charge = float(self.charge_lst[2].strip(','))
+            self.charge = round(float(self.charge_lst[2].strip(',')))
         
         self.atoms = []
         self.bonds = []
@@ -136,6 +136,8 @@ class ParsedFile:
             lst = (atom.split(None))
             if len(lst) < 4:
                 self.charge, self.spinmultiplicity = lst[0:2]
+                self.charge = int(self.charge)
+                self.spinmultiplicity = int(self.spinmultiplicity)
             else:
                 self.atoms.append(lst)
                 self.coordinates.append([float(lst[1]), float(lst[2]), float(lst[3])])
