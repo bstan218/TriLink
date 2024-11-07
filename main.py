@@ -40,7 +40,7 @@ def create_xyz_file(template_file, ligand_file, outdir, temporaryfile=False):
 
 def create_com_file(template_file, ligand_file, outdir, xtbopt = None):
     tempname = template_file.filename
-    outfname = f'{tempname}.com'
+    outfname = f'{tempname}.gjf'
 
 
     with open(f'{outdir}/{outfname}', 'w') as outf:
