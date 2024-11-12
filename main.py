@@ -86,40 +86,46 @@ def create_com_file(template_file, ligand_file, outdir, xtbopt = None):
             
             outf.write('\n')
 
-def init(configFile):
-    config = configparser.ConfigParser()
-    config.read(configFile)
-    LigandLib = config['IODir']['LigandLibDir']
-    TemplateDir = config['IODir']['TemplateDir']
-    coreidentity = config['Other']['CoreIdentity']
-    xtbopt = config['Other']['xtbopt']
-    runscript = config['Other']['runscript']
-    script = config['Other']['script']
-    if xtbopt == "True":
-        xtbopt = True
-    else:
-        xtbopt = False
-    if runscript == "True":
-        runscript = True
-    else:
-        runscript = False    
-    return LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script
+def initial_config():
+    CONFIG_FILE = "config.ini"
+    parser = configparser.ConfigParser()
+    parser.read(CONFIG_FILE)
 
-def trilink(LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script, validligdir, invalidligdir):
+    configurations = {}
+    
+    configurations['ligands'] = parser['IODir']['LigandLibDir']
+    configurations['templates'] = parser['IODir']['TemplateDir']
+    configurations['core'] = parser['Other']['CoreIdentity']
+    configurations['xtb'] = parser['Other']['xtbopt'] == 'True'
+    configurations['runscript'] = parser['Other']['runscript'] == 'True'
+    configurations['script'] = parser['Other']['script']
+
+    return configurations
+
+def trilink(**kwargs):
     #initialize template list
+    template_dir = kwargs['templates']
+    ligand_dir = kwargs['ligands']
+    core_identity = kwargs['core']
+    invalid_dir = kwargs['invalid']
+    valid_dir = kwargs['valid']
+    runscript = kwargs['runscript']
+    script = kwargs['script']
+    
+
     template_lst = []
-    for template in os.listdir(TemplateDir):
-        temp_filepath = f'{TemplateDir}{template}'
-        template = ParsedFile(temp_filepath, template=True, coreidentity=coreidentity)
+    for template in os.listdir(template_dir):
+        temp_filepath = f'{template_dir}{template}'
+        template = ParsedFile(temp_filepath, template=True, coreidentity=core_identity)
         nonaltcoords, altcoords = RotateMolecule.init_rotate_molecule(template)
         template.set_rotated_coordinates(nonaltcoords)
         template.set_alt_rotated_coordinates(altcoords)
         template_lst.append(template)
     
     #main program loop
-    for lig in os.listdir(LigandLib):
+    for lig in os.listdir(ligand_dir):
         print(lig)
-        lig_filepath = f'{LigandLib}{lig}'
+        lig_filepath = f'{ligand_dir}{lig}'
         ligand = ParsedFile(lig_filepath)
         if ligand.missing_data:
             continue
@@ -132,9 +138,9 @@ def trilink(LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script, val
             #OptimizeValidate.rotamer_optimization(ligand, template_lst)
 
         #create .com directory for ligand
-        outdir = (f'{invalidligdir}{ligand.filename}/')
+        outdir = (f'{invalid_dir}{ligand.filename}/')
         if valid:
-            outdir = (f'{validligdir}{ligand.filename}/')
+            outdir = (f'{valid_dir}{ligand.filename}/')
         
         os.mkdir(outdir)
         #create .com files
@@ -161,28 +167,29 @@ def trilink(LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script, val
     
     if runscript:
         #for folder in 
-        for dir in os.listdir(validligdir):
-            os.chdir(f"./{validligdir}{dir}")
+        for dir in os.listdir(valid_dir):
+            os.chdir(f"./{valid_dir}{dir}")
             subprocess.run(script.split(), shell=True)
 
 
 def main():
     #assign directories and files, make directories
-    configFile = "config.ini"
-    LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script = init(configFile)
+    params = initial_config()
     d = time.localtime()
-    OutDirLabel = LigandLib.replace('/','_')
+    out_dir_label = params['ligands'].replace('/','_')
     xtblabel=""
-    if xtbopt:
+    if params['xtb']:
         xtblabel="xtb_"
-    outdir = f'Output_{OutDirLabel}{xtblabel}{d[1]}{d[2]}{d[0]}.{d[3]}{d[4]}{d[5]}'
+    outdir = f'Output_{out_dir_label}{xtblabel}{d[1]}{d[2]}{d[0]}.{d[3]}{d[4]}{d[5]}'
     validligdir = f'{outdir}/valid_ligands/'
+    params['valid'] = validligdir
     invalidligdir = f'{outdir}/invalid_ligands/'
-    os.mkdir(outdir)
-    os.mkdir(validligdir)
-    os.mkdir(invalidligdir)
+    params['invalid'] = invalidligdir
 
-    trilink(LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script, validligdir, invalidligdir)
+    os.makedirs(validligdir, exist_ok=True)
+    os.makedirs(invalidligdir, exist_ok=True)
+
+    trilink(params)
     
 
 if __name__ == "__main__":
