@@ -86,7 +86,7 @@ def create_com_file(template_file, ligand_file, outdir, xtbopt = None):
             
             outf.write('\n')
 
-def Init(configFile):
+def init(configFile):
     config = configparser.ConfigParser()
     config.read(configFile)
     LigandLib = config['IODir']['LigandLibDir']
@@ -105,24 +105,7 @@ def Init(configFile):
         runscript = False    
     return LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script
 
-
-
-def main():
-    #assign directories and files, make directories
-    configFile = "config.ini"
-    LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script = Init(configFile)
-    d = time.localtime()
-    OutDirLabel = LigandLib.replace('/','_')
-    xtblabel=""
-    if xtbopt:
-        xtblabel="xtb_"
-    outdir = f'Output_{OutDirLabel}{xtblabel}{d[1]}{d[2]}{d[0]}.{d[3]}{d[4]}{d[5]}'
-    validligdir = f'{outdir}/valid_ligands/'
-    invalidligdir = f'{outdir}/invalid_ligands/'
-    os.mkdir(outdir)
-    os.mkdir(validligdir)
-    os.mkdir(invalidligdir)
-
+def trilink(LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script, validligdir, invalidligdir):
     #initialize template list
     template_lst = []
     for template in os.listdir(TemplateDir):
@@ -181,6 +164,25 @@ def main():
         for dir in os.listdir(validligdir):
             os.chdir(f"./{validligdir}{dir}")
             subprocess.run(script.split(), shell=True)
+
+
+def main():
+    #assign directories and files, make directories
+    configFile = "config.ini"
+    LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script = init(configFile)
+    d = time.localtime()
+    OutDirLabel = LigandLib.replace('/','_')
+    xtblabel=""
+    if xtbopt:
+        xtblabel="xtb_"
+    outdir = f'Output_{OutDirLabel}{xtblabel}{d[1]}{d[2]}{d[0]}.{d[3]}{d[4]}{d[5]}'
+    validligdir = f'{outdir}/valid_ligands/'
+    invalidligdir = f'{outdir}/invalid_ligands/'
+    os.mkdir(outdir)
+    os.mkdir(validligdir)
+    os.mkdir(invalidligdir)
+
+    trilink(LigandLib, TemplateDir, coreidentity, xtbopt, runscript, script, validligdir, invalidligdir)
     
 
 if __name__ == "__main__":
