@@ -1,5 +1,7 @@
 from Parser import ParsedFile, TLCode
 import os
+import sys
+import argparse
 import configparser
 import time
 import OptimizeValidate
@@ -147,7 +149,6 @@ def trilink(**kwargs):
         for template in template_lst:
             if valid and xtbopt:
                 create_xyz_file(template,ligand,outdir,temporaryfile=True)
-                #xtb optimization
                 #define connection atoms
                 freezeatoms = [f"1-{len(template.atoms)-3}"]
                 for atom in ligand.connection_atoms:
@@ -166,24 +167,40 @@ def trilink(**kwargs):
                     outf.write(f'{i}\n')
     
     if runscript:
-        #for folder in 
         for dir in os.listdir(valid_dir):
             os.chdir(f"./{valid_dir}{dir}")
             subprocess.run(script.split(), shell=True)
 
 
 def main():
-    #assign directories and files, make directories
     params = initial_config()
     d = time.localtime()
     out_dir_label = params['ligands'].replace('/','_')
     xtblabel=""
     if params['xtb']:
         xtblabel="xtb_"
-    outdir = f'Output_{out_dir_label}{xtblabel}{d[1]}{d[2]}{d[0]}.{d[3]}{d[4]}{d[5]}'
-    validligdir = f'{outdir}/valid_ligands/'
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-output', '-o', help='Directory where the valid and invalid directories are created', default=None)
+    parser.add_argument('-valid', '-v', help='Directory where valid structures are saved', default=None)
+    parser.add_argument('-invalid', '-i', help='Directory where invalid structures are saved', default=None)
+    args = parser.parse_args()
+
+    if args.output:
+        outdir = args.output
+    else:
+        outdir = f'Output_{out_dir_label}{xtblabel}{d[1]}{d[2]}{d[0]}.{d[3]}{d[4]}{d[5]}'
+
+    if args.valid:
+        validligdir = args.valid
+    else:
+        validligdir = f'{outdir}/valid_ligands/'
     params['valid'] = validligdir
-    invalidligdir = f'{outdir}/invalid_ligands/'
+
+    if args.invalid:
+        invalidligdir = args.invalid
+    else:
+        invalidligdir = f'{outdir}/invalid_ligands/'
     params['invalid'] = invalidligdir
 
     os.makedirs(validligdir, exist_ok=True)
