@@ -1,5 +1,6 @@
 import numpy as np
-import RotateMolecule
+from . import RotateMolecule
+#import RotateMolecule
 
 class BondRadii:
     def __init__(self) -> None:

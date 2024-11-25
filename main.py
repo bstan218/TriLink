@@ -1,13 +1,17 @@
-from Parser import ParsedFile, TLCode
+#!/usr/bin/env python3
+
 import os
 import sys
 import argparse
 import configparser
 import time
-import OptimizeValidate
-import RotateMolecule
-import runxtb
 import subprocess
+
+#from .utils import OptimizeValidate, RotateMolecule, runxtb
+#from .utils.Parser import ParsedFile, TLCode
+
+from utils import OptimizeValidate, RotateMolecule, runxtb
+from utils.Parser import ParsedFile, TLCode
 
 def create_xyz_file(template_file, ligand_file, outdir, temporaryfile=False):
     templatename = template_file.filename
@@ -89,18 +93,21 @@ def create_com_file(template_file, ligand_file, outdir, xtbopt = None):
             outf.write('\n')
 
 def initial_config():
+    local_directory = os.path.dirname(os.path.abspath(__file__))
+    localize = lambda file: os.path.join(local_directory, file)
+
     CONFIG_FILE = "config.ini"
-    parser = configparser.ConfigParser()
-    parser.read(CONFIG_FILE)
+    config = configparser.ConfigParser()
+    config.read(localize(CONFIG_FILE))
 
     configurations = {}
     
-    configurations['ligands'] = parser['IODir']['LigandLibDir']
-    configurations['templates'] = parser['IODir']['TemplateDir']
-    configurations['core'] = parser['Other']['CoreIdentity']
-    configurations['xtb'] = parser['Other']['xtbopt'] == 'True'
-    configurations['runscript'] = parser['Other']['runscript'] == 'True'
-    configurations['script'] = parser['Other']['script']
+    configurations['ligands'] = localize(config['IODir']['LigandLibDir'])
+    configurations['templates'] = localize(config['IODir']['TemplateDir'])
+    configurations['core'] = config['Other']['CoreIdentity']
+    configurations['xtb'] = config['Other']['xtbopt'] == 'True'
+    configurations['runscript'] = config['Other']['runscript'] == 'True'
+    configurations['script'] = config['Other']['script']
 
     return configurations
 
@@ -175,7 +182,7 @@ def trilink(**kwargs):
 def main():
     params = initial_config()
     d = time.localtime()
-    out_dir_label = params['ligands'].replace('/','_')
+    out_dir_label = os.path.basename(os.path.normpath(params['ligands'])) + '_'
     xtblabel=""
     if params['xtb']:
         xtblabel="xtb_"
@@ -206,7 +213,9 @@ def main():
     os.makedirs(validligdir, exist_ok=True)
     os.makedirs(invalidligdir, exist_ok=True)
 
-    trilink(params)
+
+    print(params)
+    #trilink(params)
     
 
 if __name__ == "__main__":
