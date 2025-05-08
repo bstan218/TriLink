@@ -182,6 +182,16 @@ class ParsedFile:
         #find midpoint between those two points
         self.midpoint =  [s.mean([f[0][0],f[1][0]]), s.mean([f[0][1],f[1][1]]), s.mean([f[0][2],f[1][2]])]
 
+    def get_proper_connection_type(self):
+        self.find_core_coordinate()
+        s1, s2 = self.sideconnections
+        if s1 < s2:
+            return s1 + self.centerconnection + s2
+        else:
+            return s2 + self.centerconnection + s1
+        
+        
+
     def center_molecule(self):
         self.centered_atoms = []
         for point in self.coordinates:
