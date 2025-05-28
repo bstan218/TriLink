@@ -46,4 +46,7 @@ the config.ini file provides input parameters for trilink. Some parameters are w
 - Invalidated structures will not have an xtb optimization run, but will still have .com files generated.
 - For invalid ligands, a log file (invalidations.txt) is generated of which atoms had collision values below the cutoff value and for which templates.
 
-
+## How To Run
+```python
+python main.py
+```
