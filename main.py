@@ -97,17 +97,17 @@ def initial_config():
     localize = lambda file: os.path.join(local_directory, file)
 
     CONFIG_FILE = "config.ini"
-    config = configparser.ConfigParser()
-    config.read(localize(CONFIG_FILE))
+    configparser = configparser.ConfigParser()
+    configparser.read(localize(CONFIG_FILE))
 
     configurations = {}
     
-    configurations['ligands'] = localize(config['IODir']['LigandLibDir'])
-    configurations['templates'] = localize(config['IODir']['TemplateDir'])
-    configurations['core'] = config['Other']['CoreIdentity']
-    configurations['xtb'] = config['Other']['xtbopt'] == 'True'
-    configurations['runscript'] = config['Other']['runscript'] == 'True'
-    configurations['script'] = config['Other']['script']
+    configurations['ligands'] = localize(configparser['IODir']['LigandLibDir'])
+    configurations['templates'] = localize(configparser['IODir']['TemplateDir'])
+    configurations['core'] = configparser['Other']['CoreIdentity']
+    configurations['xtb'] = configparser['Other']['xtbopt'] == 'True'
+    configurations['runscript'] = configparser['Other']['runscript'] == 'True'
+    configurations['script'] = configparser['Other']['script']
 
     return configurations
 
@@ -126,7 +126,7 @@ def trilink(**kwargs):
     for template in os.listdir(template_dir):
         temp_filepath = f'{template_dir}{template}'
         template = ParsedFile(temp_filepath, template=True, coreidentity=core_identity)
-        nonaltcoords, altcoords = RotateMolecule.init_rotate_molecule(template)
+        nonaltcoords, altcoords = RotateMolecule.rotate_molecule(template)
         template.set_rotated_coordinates(nonaltcoords)
         template.set_alt_rotated_coordinates(altcoords)
         template_lst.append(template)
@@ -213,10 +213,8 @@ def main():
     os.makedirs(validligdir, exist_ok=True)
     os.makedirs(invalidligdir, exist_ok=True)
 
-
     print(params)
-    #trilink(params)
-    
+    trilink(params)    
 
 if __name__ == "__main__":
     main()

@@ -41,7 +41,7 @@ def RotatePoint(p, rotationvector, theta):
 
     return q
 
-def init_rotate_molecule(ligand):
+def rotate_molecule(ligand):
     
     def helper(sideindex):
         #define inputs for first rotation

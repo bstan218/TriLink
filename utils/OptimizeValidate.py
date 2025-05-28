@@ -1,5 +1,6 @@
 import numpy as np
 from . import RotateMolecule
+from .Parser import ParsedFile
 #import RotateMolecule
 
 class BondRadii:
@@ -127,8 +128,8 @@ def optimize_molecule(ligand, template):
         return False
     return True
 
-def main_optimization(ligand, template_lst):
-    ligand.set_rotated_coordinates(RotateMolecule.init_rotate_molecule(ligand)[0])
+def main_optimization(ligand:ParsedFile, template_lst:list[ParsedFile]):
+    ligand.set_rotated_coordinates(RotateMolecule.rotate_molecule(ligand)[0])
     
     either_alt_valid, alt = altornot(template_lst, ligand)
 
@@ -136,7 +137,6 @@ def main_optimization(ligand, template_lst):
     fully_optimized = True
     invalidations = []
     for template in template_lst:
-
         template.set_optimized_coordinates(template.rotated_coordinates.coords)
         if alt:
             template.set_optimized_coordinates(template.alt_rotated_coordinates.coords)

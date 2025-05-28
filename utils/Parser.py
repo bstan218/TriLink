@@ -158,7 +158,8 @@ class ParsedFile:
     def find_core_coordinate(self):
         #find which coords are furthest apart
         c1, c2, c3 = self.connection_coordinates[0:3]
-        
+        coordinates_indexes = dict(zip([tuple(c) for c in self.connection_coordinates], self.connection_atoms))
+
         def find_dif(c1,c2):
             xdif = abs(c1[0]-c2[0])
             ydif = abs(c1[1]-c2[1])
@@ -178,17 +179,21 @@ class ParsedFile:
 
         self.sideconnections = f[0:2]
         self.centerconnection = f[2]
+        self.sideconnections_indexes = [coordinates_indexes[tuple(c)] for c in self.sideconnections]
+        self.centerconnection_index = coordinates_indexes[tuple(self.centerconnection)]
 
         #find midpoint between those two points
         self.midpoint =  [s.mean([f[0][0],f[1][0]]), s.mean([f[0][1],f[1][1]]), s.mean([f[0][2],f[1][2]])]
 
     def get_proper_connection_type(self):
         self.find_core_coordinate()
-        s1, s2 = self.sideconnections
+        s1, s2 = [self.atomtypes[i-1] for i in self.sideconnections_indexes]
+        center_atomtype = self.atomtypes[self.centerconnection_index-1]
+
         if s1 < s2:
-            return s1 + self.centerconnection + s2
+            return s1 + center_atomtype + s2
         else:
-            return s2 + self.centerconnection + s1
+            return s2 + center_atomtype + s1
         
         
 
