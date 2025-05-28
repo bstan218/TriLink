@@ -3,7 +3,7 @@
 import os
 import sys
 import argparse
-import configparser
+from configparser import ConfigParser
 import time
 import subprocess
 
@@ -97,7 +97,7 @@ def initial_config():
     localize = lambda file: os.path.join(local_directory, file)
 
     CONFIG_FILE = "config.ini"
-    configparser = configparser.ConfigParser()
+    configparser = ConfigParser()
     configparser.read(localize(CONFIG_FILE))
 
     configurations = {}
@@ -120,6 +120,7 @@ def trilink(**kwargs):
     valid_dir = kwargs['valid']
     runscript = kwargs['runscript']
     script = kwargs['script']
+    xtbopt = kwargs['xtb']
     
 
     template_lst = []
@@ -214,7 +215,7 @@ def main():
     os.makedirs(invalidligdir, exist_ok=True)
 
     print(params)
-    trilink(params)    
+    trilink(**params)    
 
 if __name__ == "__main__":
     main()
