@@ -23,3 +23,6 @@ TriLink attempts to assemble a pincer complex between each provided ligand and e
 - Ensure there are 3 dummy atoms representing the ligand connection atoms.
 - Dummy atoms must be the last three atoms in the file.
 - In order to ensure consistent assembly across all template files, the order in which the 3 dummy atoms are listed is important. The first listed dummy atom should be on the same side of each template.
+
+## Ligand Directory  
+Every ligand needs to be from the ReaLigands database OR be in the exact same format as these ligands, with charge and connection atoms documented in the same way. Don't have multiple levels of directory nesting. 
